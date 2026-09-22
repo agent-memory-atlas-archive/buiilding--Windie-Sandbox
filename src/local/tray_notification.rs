@@ -3,7 +3,7 @@
 //! This component presents completed-assistant notifications and owns only the
 //! development notification probe. Production notifications name a durable
 //! session and, when the macOS notifier is running from its app bundle, can open
-//! that session's local Inspector URL. The probe reconnects to the
+//! that session's canonical local Inspector URL. The probe reconnects to the
 //! local API's volatile test SSE stream. Neither path changes session state.
 
 use anyhow::{Context, Result, anyhow};
@@ -179,10 +179,10 @@ fn show_actionable_macos_notification(content: &str, session_url: String) -> Res
                     return;
                 }
             };
-            if (response.is_default_action() || response.action_identifier == OPEN_SESSION_ACTION)
-                && let Err(error) = open_session_url(&session_url)
-            {
-                eprintln!("windie notifier: failed to open completed session: {error:#}");
+            if response.is_default_action() || response.action_identifier == OPEN_SESSION_ACTION {
+                if let Err(error) = open_session_url(&session_url) {
+                    eprintln!("windie notifier: failed to open completed session: {error:#}");
+                }
             }
         })
         .context("failed to start the Windie notification worker")?;
@@ -232,8 +232,8 @@ fn show_apple_script_notification(content: &str) -> Result<()> {
 /// segment keeps this boundary safe if their representation evolves.
 fn session_url(session_id: &crate::session::SessionId) -> String {
     format!(
-        "{}/sessions/{}",
-        crate::config::api_url().trim_end_matches('/'),
+        "http://{}/sessions/{}",
+        crate::config::inspector_address(),
         percent_encode_path_segment(session_id.as_str())
     )
 }
@@ -390,7 +390,7 @@ mod tests {
 
         assert_eq!(
             super::session_url(&session),
-            "http://127.0.0.1:8787/sessions/session%20%2F%20with%20spaces"
+            "http://127.0.0.1:3000/sessions/session%20%2F%20with%20spaces"
         );
     }
 }

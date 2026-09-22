@@ -90,16 +90,6 @@ async fn dev_run(component: DevComponent) -> Result<()> {
         }
         DevComponent::Inspector => {
             let mut inspector = spawn_component(DevComponent::Inspector).await?;
-            if let Err(error) = wait_for_inspector(&mut inspector).await {
-                stop_child(&mut inspector).await;
-                return Err(error);
-            }
-            if let Err(error) = crate::inspector::open_at("http://localhost:3000").await {
-                stop_child(&mut inspector).await;
-                return Err(error.context(
-                    "the Inspector is ready, but local access could not be created; start the API first",
-                ));
-            }
             println!("windie: development inspector is running; press Ctrl-C to stop");
             let result = supervise_one(&mut inspector).await;
             stop_child(&mut inspector).await;

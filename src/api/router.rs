@@ -10,21 +10,22 @@ pub(super) fn router(state: ApiState) -> Router {
     Router::new().merge(api_router(state))
 }
 
-/// Builds the localhost `/api/*` route table.
+/// Builds the unauthenticated localhost `/api/*` route table.
 ///
-/// CORS stays scoped to the API so browser clients served from local developer
-/// servers (ports 3000/5173) or the hosted Inspector can call localhost. The
-/// hosted origin is deliberately exact: this
-/// authenticated runtime access must not grant every website access to a
-/// user's local Windie runtime.
+/// CORS stays scoped to the API so the standalone Inspector and browser clients
+/// served from webpack dev servers (ports 3000/5173) can call localhost.
 fn api_router(state: ApiState) -> Router {
-    let origins = vec![
+    let mut origins = vec![
         HeaderValue::from_static("http://localhost:3000"),
         HeaderValue::from_static("http://127.0.0.1:3000"),
         HeaderValue::from_static("http://localhost:5173"),
         HeaderValue::from_static("http://127.0.0.1:5173"),
-        HeaderValue::from_static("https://app.windieos.com"),
     ];
+    if let Ok(origin) =
+        HeaderValue::try_from(format!("http://{}", crate::config::inspector_address()))
+    {
+        origins.push(origin);
+    }
 
     let cors = CorsLayer::new()
         .allow_origin(origins)
@@ -35,25 +36,11 @@ fn api_router(state: ApiState) -> Router {
             Method::PATCH,
             Method::DELETE,
         ])
-        .allow_headers([CONTENT_TYPE, AUTHORIZATION]);
+        .allow_headers([CONTENT_TYPE]);
 
     Router::new()
         .route("/api/health", get(health))
         .route("/api/status", get(status))
-        .route(
-            "/api/runtime/access",
-            get(runtime_access_status)
-                .post(pair_runtime_access)
-                .delete(unpair_runtime_access),
-        )
-        .route(
-            "/api/runtime/local-access/launch",
-            post(issue_local_access_launch),
-        )
-        .route(
-            "/api/runtime/local-access/exchange",
-            post(exchange_local_access_launch),
-        )
         .route("/api/events", get(global_events))
         .route("/api/events/cursor", get(global_event_cursor))
         .route("/api/dev/notifications", get(notifier_test_notifications))
@@ -246,10 +233,6 @@ fn api_router(state: ApiState) -> Router {
             post(count_input_tokens),
         )
         .layer(DefaultBodyLimit::max(API_JSON_BODY_LIMIT_BYTES))
-        .layer(axum::middleware::from_fn_with_state(
-            state.clone(),
-            authorize_runtime_request,
-        ))
         .layer(cors)
         .with_state(state)
 }

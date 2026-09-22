@@ -108,230 +108,6 @@ fn saved_sse_event_includes_authoritative_message_and_session_snapshots() {
     let _ = fs::remove_file(db_path);
 }
 
-#[tokio::test]
-async fn hosted_account_must_pair_before_using_the_local_runtime() {
-    let db_path = temp_database_path();
-    let auth = spawn_mock_hosted_auth().await;
-    let (shutdown_tx, _shutdown_rx) = watch::channel(false);
-    let app = test_app_with_urls_shutdown_and_access(
-        db_path.clone(),
-        "http://localhost:8080",
-        "http://localhost:8080/v1",
-        shutdown_tx,
-        RuntimeAccessControl::hosted_for_tests(auth.url),
-    );
-
-    let missing_identity = app
-        .clone()
-        .oneshot(authed_request(Method::GET, "/api/conversations", None))
-        .await
-        .unwrap();
-    assert_eq!(missing_identity.status(), StatusCode::UNAUTHORIZED);
-
-    let unpaired = app
-        .clone()
-        .oneshot(hosted_request(
-            Method::GET,
-            "/api/conversations",
-            "account-a",
-        ))
-        .await
-        .unwrap();
-    assert_eq!(unpaired.status(), StatusCode::CONFLICT);
-
-    let paired = app
-        .clone()
-        .oneshot(hosted_request(
-            Method::POST,
-            "/api/runtime/access",
-            "account-a",
-        ))
-        .await
-        .unwrap();
-    assert_eq!(paired.status(), StatusCode::OK);
-    assert_eq!(response_json_body(paired).await["state"], "linked");
-
-    let owner_access = app
-        .clone()
-        .oneshot(hosted_request(
-            Method::GET,
-            "/api/conversations",
-            "account-a",
-        ))
-        .await
-        .unwrap();
-    assert_eq!(owner_access.status(), StatusCode::OK);
-
-    let different_account = app
-        .oneshot(hosted_request(
-            Method::GET,
-            "/api/conversations",
-            "account-b",
-        ))
-        .await
-        .unwrap();
-    assert_eq!(different_account.status(), StatusCode::FORBIDDEN);
-
-    let _ = fs::remove_file(db_path);
-}
-
-#[tokio::test]
-async fn unsafe_public_demo_accepts_requests_without_identity_or_pairing() {
-    let db_path = temp_database_path();
-    let (shutdown_tx, _shutdown_rx) = watch::channel(false);
-    let app = test_app_with_urls_shutdown_and_access(
-        db_path.clone(),
-        "http://localhost:8080",
-        "http://localhost:8080/v1",
-        shutdown_tx,
-        RuntimeAccessControl::unsafe_public_demo(),
-    );
-
-    let response = app
-        .oneshot(authed_request(Method::GET, "/api/conversations", None))
-        .await
-        .unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        response_json_body(response).await["conversations"],
-        json!([])
-    );
-
-    let _ = fs::remove_file(db_path);
-}
-
-#[tokio::test]
-async fn local_component_token_can_read_protected_notification_streams() {
-    let db_path = temp_database_path();
-    let auth = spawn_mock_hosted_auth().await;
-    let (shutdown_tx, _shutdown_rx) = watch::channel(false);
-    let app = test_app_with_urls_shutdown_and_access(
-        db_path.clone(),
-        "http://localhost:8080",
-        "http://localhost:8080/v1",
-        shutdown_tx,
-        RuntimeAccessControl::hosted_for_tests(auth.url),
-    );
-
-    let response = app
-        .clone()
-        .oneshot(
-            HttpRequest::builder()
-                .method(Method::GET)
-                .uri("/api/events/cursor?kind=completed")
-                .header(
-                    crate::config::LOCAL_COMPONENT_TOKEN_HEADER,
-                    "test-local-component-token",
-                )
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let rejected = app
-        .oneshot(
-            HttpRequest::builder()
-                .method(Method::GET)
-                .uri("/api/events/cursor?kind=completed")
-                .header(crate::config::LOCAL_COMPONENT_TOKEN_HEADER, "wrong-token")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(rejected.status(), StatusCode::UNAUTHORIZED);
-
-    let _ = fs::remove_file(db_path);
-}
-
-#[tokio::test]
-async fn local_inspector_launch_code_is_one_time_and_bypasses_hosted_pairing() {
-    let db_path = temp_database_path();
-    let auth = spawn_mock_hosted_auth().await;
-    let (shutdown_tx, _shutdown_rx) = watch::channel(false);
-    let app = test_app_with_urls_shutdown_and_access(
-        db_path.clone(),
-        "http://localhost:8080",
-        "http://localhost:8080/v1",
-        shutdown_tx,
-        RuntimeAccessControl::hosted_for_tests(auth.url),
-    );
-
-    let launch = app
-        .clone()
-        .oneshot(
-            HttpRequest::builder()
-                .method(Method::POST)
-                .uri("/api/runtime/local-access/launch")
-                .header(
-                    crate::config::LOCAL_COMPONENT_TOKEN_HEADER,
-                    "test-local-component-token",
-                )
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(launch.status(), StatusCode::OK);
-    let code = response_json_body(launch).await["code"]
-        .as_str()
-        .unwrap()
-        .to_string();
-
-    let exchange_body = Some(json!({ "code": code }));
-    let exchange = app
-        .clone()
-        .oneshot(authed_request(
-            Method::POST,
-            "/api/runtime/local-access/exchange",
-            exchange_body.clone(),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(exchange.status(), StatusCode::OK);
-    let local_token = response_json_body(exchange).await["access_token"]
-        .as_str()
-        .unwrap()
-        .to_string();
-
-    let consumed = app
-        .clone()
-        .oneshot(authed_request(
-            Method::POST,
-            "/api/runtime/local-access/exchange",
-            exchange_body,
-        ))
-        .await
-        .unwrap();
-    assert_eq!(consumed.status(), StatusCode::UNAUTHORIZED);
-
-    let runtime = app
-        .clone()
-        .oneshot(local_inspector_request(
-            Method::GET,
-            "/api/conversations",
-            &local_token,
-        ))
-        .await
-        .unwrap();
-    assert_eq!(runtime.status(), StatusCode::OK);
-
-    let hosted_pairing = app
-        .oneshot(local_inspector_request(
-            Method::GET,
-            "/api/runtime/access",
-            &local_token,
-        ))
-        .await
-        .unwrap();
-    assert_eq!(hosted_pairing.status(), StatusCode::FORBIDDEN);
-
-    let _ = fs::remove_file(db_path);
-}
-
 #[test]
 fn aggregate_event_envelope_namespaces_session_events() {
     let db_path = temp_database_path();
@@ -572,7 +348,7 @@ async fn shutdown_does_not_require_token_and_signals_server() {
 }
 
 #[tokio::test]
-async fn isolated_api_route_fixture_bypasses_hosted_authorization() {
+async fn api_routes_accept_requests_without_a_token() {
     let app = test_app(temp_database_path());
     let missing = app
         .clone()
@@ -1961,22 +1737,6 @@ fn test_app_with_urls_and_shutdown(
     base_url: &str,
     shutdown_tx: watch::Sender<bool>,
 ) -> Router {
-    test_app_with_urls_shutdown_and_access(
-        store_path,
-        gateway_url,
-        base_url,
-        shutdown_tx,
-        RuntimeAccessControl::unrestricted_for_isolated_tests(),
-    )
-}
-
-fn test_app_with_urls_shutdown_and_access(
-    store_path: PathBuf,
-    gateway_url: &str,
-    base_url: &str,
-    shutdown_tx: watch::Sender<bool>,
-    runtime_access: RuntimeAccessControl,
-) -> Router {
     let tool_registry = Arc::new(ToolProviderRegistry::with_persistent_mcp_sessions());
     let plugin_store = Arc::new(crate::plugin::PluginStore::new(
         std::env::temp_dir().join(format!("windie-api-plugins-{}", std::process::id())),
@@ -2005,7 +1765,6 @@ fn test_app_with_urls_shutdown_and_access(
         plugin_catalog,
         tool_registry,
         session_manager,
-        runtime_access,
         notifier_test_notifications,
         shutdown_tx,
     })
@@ -2042,7 +1801,6 @@ fn test_app_with_tool_registry(
         plugin_catalog,
         tool_registry,
         session_manager,
-        runtime_access: RuntimeAccessControl::unrestricted_for_isolated_tests(),
         notifier_test_notifications,
         shutdown_tx: watch::channel(false).0,
     })
@@ -2051,54 +1809,6 @@ fn test_app_with_tool_registry(
 struct MockBifrost {
     gateway_url: String,
     base_url: String,
-}
-
-struct MockHostedAuth {
-    url: String,
-}
-
-async fn spawn_mock_hosted_auth() -> MockHostedAuth {
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let address = listener.local_addr().unwrap();
-    tokio::spawn(async move {
-        loop {
-            let Ok((stream, _)) = listener.accept().await else {
-                break;
-            };
-            tokio::spawn(handle_mock_hosted_auth_connection(stream));
-        }
-    });
-
-    MockHostedAuth {
-        url: format!("http://{address}"),
-    }
-}
-
-async fn handle_mock_hosted_auth_connection(mut stream: tokio::net::TcpStream) {
-    let mut buffer = vec![0_u8; 8192];
-    let Ok(size) = stream.read(&mut buffer).await else {
-        return;
-    };
-    let request = String::from_utf8_lossy(&buffer[..size]);
-    let account = if request.contains("authorization: Bearer account-a") {
-        Some("account-a")
-    } else if request.contains("authorization: Bearer account-b") {
-        Some("account-b")
-    } else {
-        None
-    };
-
-    match account {
-        Some(account) => {
-            write_mock_response(
-                &mut stream,
-                "application/json",
-                &format!(r#"{{"id":"{account}"}}"#),
-            )
-            .await;
-        }
-        None => write_mock_status(&mut stream, 401, "invalid token").await,
-    }
 }
 
 async fn spawn_mock_bifrost(response_delay: Duration) -> MockBifrost {
@@ -2183,24 +1893,6 @@ fn authed_request(method: Method, uri: &str, body: Option<Value>) -> HttpRequest
     };
 
     builder.body(body).unwrap()
-}
-
-fn hosted_request(method: Method, uri: &str, account: &str) -> HttpRequest<Body> {
-    HttpRequest::builder()
-        .method(method)
-        .uri(uri)
-        .header(AUTHORIZATION, format!("Bearer {account}"))
-        .body(Body::empty())
-        .unwrap()
-}
-
-fn local_inspector_request(method: Method, uri: &str, token: &str) -> HttpRequest<Body> {
-    HttpRequest::builder()
-        .method(method)
-        .uri(uri)
-        .header(AUTHORIZATION, format!("WindieLocal {token}"))
-        .body(Body::empty())
-        .unwrap()
 }
 
 async fn response_json(response: Response) -> Value {

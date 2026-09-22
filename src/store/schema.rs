@@ -18,7 +18,10 @@ impl Store {
                 "database schema version {existing_version} is newer than supported version {DATABASE_SCHEMA_VERSION}"
             ));
         }
-        if existing_version != 0 && existing_version < PREVIOUS_DATABASE_SCHEMA_VERSION {
+        if existing_version != 0
+            && existing_version < DATABASE_SCHEMA_VERSION
+            && existing_version != PREVIOUS_DATABASE_SCHEMA_VERSION
+        {
             return Err(anyhow!(
                 "database schema version {existing_version} is older than supported version {DATABASE_SCHEMA_VERSION}; remove the old Windie database or recreate it"
             ));
@@ -195,12 +198,6 @@ impl Store {
 
                     FOREIGN KEY (provider_id) REFERENCES installed_providers(provider_id)
                         ON DELETE CASCADE
-                );
-
-                CREATE TABLE IF NOT EXISTS runtime_access (
-                    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-                    account_id TEXT NOT NULL,
-                    linked_at INTEGER NOT NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS messages_conversation_created_idx

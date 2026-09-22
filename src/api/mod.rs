@@ -2,7 +2,7 @@
 //!
 //! This module exposes Windie's existing runtime and store primitives over a
 //! localhost-only JSON API. It is a test harness boundary for clients such as
-//! the hosted Inspector; persistence, context construction, gateway checks, and
+//! `windie-inspector`; persistence, context construction, gateway checks, and
 //! model requests still flow through the same modules used by the CLI.
 
 use std::collections::VecDeque;
@@ -13,10 +13,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use axum::extract::{DefaultBodyLimit, Extension, Path, Query, Request, State};
-use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
-use axum::http::{HeaderMap, HeaderValue, Method, StatusCode};
-use axum::middleware::Next;
+use axum::extract::{DefaultBodyLimit, Path, Query, State};
+use axum::http::header::CONTENT_TYPE;
+use axum::http::{HeaderValue, Method, StatusCode};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, patch, post};
@@ -28,7 +27,6 @@ use serde_json::Value;
 use tokio::net::TcpListener;
 use tokio::sync::watch;
 use tower_http::cors::CorsLayer;
-use tower_http::services::{ServeDir, ServeFile};
 
 use crate::conversation::{ConversationId, ImageAssetId, MessageId, Role, ToolCallId};
 use crate::error::{self as windie_error, WindieErrorKind};
@@ -58,7 +56,6 @@ mod inspection;
 mod message;
 mod plugin;
 mod router;
-mod runtime_access;
 mod session;
 mod session_approval;
 mod shutdown;
@@ -78,7 +75,6 @@ use inspection::*;
 use message::*;
 use plugin::*;
 use router::router;
-use runtime_access::*;
 use session::*;
 use session_approval::*;
 use shutdown::*;
@@ -96,7 +92,6 @@ const API_JSON_BODY_LIMIT_BYTES: usize = 32 * 1024 * 1024;
 /// Sessions the local developer API server until the process is stopped.
 pub async fn serve(address: SocketAddr, gateway_url: &str, base_url: &str) -> Result<()> {
     let output = TerminalOutput;
-    let local_component_token = local::api_component_token()?;
     let tool_registry = Arc::new(ToolProviderRegistry::with_persistent_mcp_sessions());
     let plugin_store = Arc::new(crate::plugin::PluginStore::default_store()?);
     for plugin in plugin_store.installed_plugins()? {
@@ -145,12 +140,6 @@ pub async fn serve(address: SocketAddr, gateway_url: &str, base_url: &str) -> Re
             .await;
     });
     let (notifier_test_notifications, _) = tokio::sync::broadcast::channel(16);
-    let runtime_access = if crate::config::unsafe_public_demo() {
-        output.unsafe_public_demo_enabled();
-        RuntimeAccessControl::unsafe_public_demo()
-    } else {
-        RuntimeAccessControl::hosted_and_local(local_component_token)
-    };
     let state = ApiState {
         gateway_url: gateway_url.to_string(),
         base_url: base_url.to_string(),
@@ -161,7 +150,6 @@ pub async fn serve(address: SocketAddr, gateway_url: &str, base_url: &str) -> Re
         plugin_catalog,
         tool_registry,
         session_manager,
-        runtime_access,
         notifier_test_notifications,
         shutdown_tx: shutdown_tx.clone(),
     };
@@ -179,15 +167,7 @@ pub async fn serve(address: SocketAddr, gateway_url: &str, base_url: &str) -> Re
     write_process_pid_file(&api_pid_file)?;
 
     output.api_started(&address);
-    let app = match crate::inspector::installed_assets_directory() {
-        Some(assets) => {
-            let index = assets.join("index.html");
-            router(state)
-                .fallback_service(ServeDir::new(assets).not_found_service(ServeFile::new(index)))
-        }
-        None => router(state),
-    };
-    let server_result = axum::serve(listener, app)
+    let server_result = axum::serve(listener, router(state))
         .with_graceful_shutdown(shutdown_signal(shutdown_rx))
         .await
         .context("api server failed");
@@ -242,7 +222,6 @@ pub(crate) fn benchmark_router(store_path: PathBuf) -> Router {
         plugin_catalog,
         tool_registry,
         session_manager,
-        runtime_access: RuntimeAccessControl::unrestricted_for_isolated_tests(),
         notifier_test_notifications,
         shutdown_tx,
     })

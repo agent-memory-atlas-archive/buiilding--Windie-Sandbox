@@ -96,13 +96,6 @@ impl TerminalOutput {
         println!("windie api listening on http://{address}");
     }
 
-    /// Makes the deliberately unauthenticated demo policy visible at startup.
-    pub fn unsafe_public_demo_enabled(&self) {
-        eprintln!(
-            "warning: WINDIE_UNSAFE_PUBLIC_DEMO=1; every Windie API route accepts anonymous requests"
-        );
-    }
-
     /// Prints one detached component lifecycle result.
     pub fn component_report(&self, report: &ProcessReport) {
         println!(
@@ -132,7 +125,7 @@ impl TerminalOutput {
     pub fn uninstall_report(&self, report: &UninstallReport) {
         if report.dry_run {
             println!("windie uninstall: dry run");
-            println!("would stop: notifier, tray, api, gateway");
+            println!("would stop: notifier, tray, api, inspector, gateway");
             println!("would remove data: {}", report.plan.windie_home.display());
             for binary in &report.plan.binaries {
                 println!("would remove binary: {}", binary.display());

@@ -7,16 +7,11 @@
 
 use std::env;
 use std::fs;
-use std::fs::OpenOptions;
-use std::io::Write;
-#[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 #[cfg(windows)]
 use std::process::Command;
 
 use anyhow::{Context, Result, anyhow};
-use uuid::Uuid;
 
 const ENV_FILE_NAME: &str = ".env";
 const BIFROST_DIR: &str = "bifrost";
@@ -24,11 +19,12 @@ const GATEWAY_LOG_FILE_NAME: &str = "windie-gateway.log";
 const GATEWAY_PID_FILE_NAME: &str = "bifrost.pid";
 const API_LOG_FILE_NAME: &str = "windie-api.log";
 const API_PID_FILE_NAME: &str = "windie-api.pid";
+const INSPECTOR_LOG_FILE_NAME: &str = "windie-inspector.log";
+const INSPECTOR_PID_FILE_NAME: &str = "windie-inspector.pid";
 const TRAY_LOG_FILE_NAME: &str = "windie-tray.log";
 const TRAY_PID_FILE_NAME: &str = "windie-tray.pid";
 const NOTIFIER_LOG_FILE_NAME: &str = "windie-notifier.log";
 const NOTIFIER_PID_FILE_NAME: &str = "windie-notifier.pid";
-const API_COMPONENT_TOKEN_FILE_NAME: &str = "api-component.token";
 const LLM_ENV_KEYS: &[&str] = &[
     "OPENAI_API_KEY",
     "OPENROUTER_API_KEY",
@@ -101,6 +97,8 @@ pub struct WindieLayout {
     pub gateway_pid_file: PathBuf,
     pub api_log_file: PathBuf,
     pub api_pid_file: PathBuf,
+    pub inspector_log_file: PathBuf,
+    pub inspector_pid_file: PathBuf,
     pub tray_log_file: PathBuf,
     pub tray_pid_file: PathBuf,
     pub notifier_log_file: PathBuf,
@@ -142,77 +140,6 @@ pub fn ensure_windie_layout() -> Result<WindieLayout> {
     Ok(layout)
 }
 
-/// Returns the credential shared by the local API and presentation components.
-///
-/// The token is generated once under Windie's private data directory and is
-/// never exposed to the hosted Inspector. Local components send it only when
-/// reading the API's internal notification streams, which keeps those streams
-/// protected after the browser-facing API authorization boundary was added.
-pub fn api_component_token() -> Result<String> {
-    let layout = ensure_windie_layout()?;
-    let path = layout.root.join(API_COMPONENT_TOKEN_FILE_NAME);
-
-    loop {
-        match fs::read_to_string(&path) {
-            Ok(token) => {
-                let token = token.trim();
-                if token.is_empty() {
-                    return Err(anyhow!(
-                        "Windie local component token file {} is empty",
-                        path.display()
-                    ));
-                }
-                return Ok(token.to_string());
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => {
-                return Err(error).with_context(|| {
-                    format!(
-                        "failed to read Windie local component token {}",
-                        path.display()
-                    )
-                });
-            }
-        }
-
-        let token = Uuid::new_v4().simple().to_string();
-        let mut options = OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        options.mode(0o600);
-
-        match options.open(&path) {
-            Ok(mut file) => {
-                file.write_all(token.as_bytes()).with_context(|| {
-                    format!(
-                        "failed to write Windie local component token {}",
-                        path.display()
-                    )
-                })?;
-                file.write_all(b"\n").with_context(|| {
-                    format!(
-                        "failed to finish Windie local component token {}",
-                        path.display()
-                    )
-                })?;
-                return Ok(token);
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                // Another Windie component won the creation race. Read its
-                // token on the next loop iteration rather than replacing it.
-            }
-            Err(error) => {
-                return Err(error).with_context(|| {
-                    format!(
-                        "failed to create Windie local component token {}",
-                        path.display()
-                    )
-                });
-            }
-        }
-    }
-}
-
 /// Returns the only supported Windie provider-key environment file path.
 pub fn env_file_path() -> Result<PathBuf> {
     Ok(windie_layout()?.env_file)
@@ -226,6 +153,7 @@ pub fn component_log_file_path(
     Ok(match component {
         crate::local::process::ManagedComponent::Gateway => layout.gateway_log_file,
         crate::local::process::ManagedComponent::Api => layout.api_log_file,
+        crate::local::process::ManagedComponent::Inspector => layout.inspector_log_file,
         crate::local::process::ManagedComponent::Tray => layout.tray_log_file,
         crate::local::process::ManagedComponent::Notifier => layout.notifier_log_file,
     })
@@ -239,6 +167,7 @@ pub fn component_pid_file_path(
     Ok(match component {
         crate::local::process::ManagedComponent::Gateway => layout.gateway_pid_file,
         crate::local::process::ManagedComponent::Api => layout.api_pid_file,
+        crate::local::process::ManagedComponent::Inspector => layout.inspector_pid_file,
         crate::local::process::ManagedComponent::Tray => layout.tray_pid_file,
         crate::local::process::ManagedComponent::Notifier => layout.notifier_pid_file,
     })
@@ -255,6 +184,7 @@ pub(crate) fn existing_component_pid_file_path(
     Ok(match component {
         crate::local::process::ManagedComponent::Gateway => layout.gateway_pid_file,
         crate::local::process::ManagedComponent::Api => layout.api_pid_file,
+        crate::local::process::ManagedComponent::Inspector => layout.inspector_pid_file,
         crate::local::process::ManagedComponent::Tray => layout.tray_pid_file,
         crate::local::process::ManagedComponent::Notifier => layout.notifier_pid_file,
     })
@@ -262,7 +192,7 @@ pub(crate) fn existing_component_pid_file_path(
 
 /// Returns the exact Windie-owned paths that uninstall may remove.
 ///
-/// The data root and named release-owned presentation directories are the only
+/// The data root and named, release-owned macOS desktop bundles are the only
 /// recursive targets. Installed binaries remain individual files inside the
 /// configured install directory; the directory itself is never removed because
 /// it may contain unrelated user programs.
@@ -275,7 +205,7 @@ pub fn uninstall_plan() -> Result<UninstallPlan> {
     Ok(UninstallPlan {
         windie_home,
         install_dir: install_dir.clone(),
-        binaries: ["windie", "bifrost"]
+        binaries: ["windie", "bifrost", "windie-inspector"]
             .into_iter()
             .map(|name| install_dir.join(executable_name(name)))
             .collect(),
@@ -463,6 +393,8 @@ fn windie_layout() -> Result<WindieLayout> {
         gateway_pid_file: root.join(BIFROST_DIR).join(GATEWAY_PID_FILE_NAME),
         api_log_file: root.join(API_LOG_FILE_NAME),
         api_pid_file: root.join(API_PID_FILE_NAME),
+        inspector_log_file: root.join(INSPECTOR_LOG_FILE_NAME),
+        inspector_pid_file: root.join(INSPECTOR_PID_FILE_NAME),
         tray_log_file: root.join(TRAY_LOG_FILE_NAME),
         tray_pid_file: root.join(TRAY_PID_FILE_NAME),
         notifier_log_file: root.join(NOTIFIER_LOG_FILE_NAME),
@@ -581,7 +513,7 @@ fn validate_uninstall_paths(
 /// Validates both the safe roots and the exact binary list selected by Windie.
 fn validate_uninstall_plan(plan: &UninstallPlan, user_home: &Path) -> Result<()> {
     validate_uninstall_paths(user_home, &plan.windie_home, &plan.install_dir)?;
-    let expected = ["windie", "bifrost"]
+    let expected = ["windie", "bifrost", "windie-inspector"]
         .into_iter()
         .map(|name| plan.install_dir.join(executable_name(name)))
         .collect::<Vec<_>>();
@@ -668,16 +600,16 @@ fn executable_name(name: &str) -> String {
 fn owned_install_directories(install_dir: &Path) -> Vec<PathBuf> {
     #[cfg(target_os = "macos")]
     {
-        vec![
-            install_dir.join("inspector"),
+        return vec![
             install_dir.join("Windie Notifier.app"),
             install_dir.join("Windie Tray.app"),
-        ]
+        ];
     }
 
     #[cfg(not(target_os = "macos"))]
     {
-        vec![install_dir.join("inspector")]
+        let _ = install_dir;
+        Vec::new()
     }
 }
 
@@ -842,7 +774,7 @@ mod tests {
             fs::write(directory.join("owned"), "owned").unwrap();
         }
 
-        let binaries = ["windie", "bifrost"]
+        let binaries = ["windie", "bifrost", "windie-inspector"]
             .into_iter()
             .map(|name| install_dir.join(executable_name(name)))
             .collect();

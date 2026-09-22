@@ -11,11 +11,9 @@ conversations and message heads, view the conversation tree, configure models
 and tools, start or continue sessions, respond to approvals, and inspect live
 runtime progress.
 
-The Inspector can run from the hosted `https://app.windieos.com` origin or from
-a local loopback development or packaged origin. The public hostname is the
-anonymous demo and calls `https://api-demo.windieos.com`; local origins call
-the loopback API. Neither mode reads Windie's SQLite state or calls Bifrost
-directly.
+The Inspector runs from a local loopback development or packaged origin. The
+browser communicates with the local API rather than reading Windie's SQLite
+state or calling Bifrost directly.
 
 ## Owns
 
@@ -32,10 +30,8 @@ The Inspector owns the browser-facing presentation boundary:
 - consuming replayed and live Server-Sent Events (SSE), keeping event cursors,
   and rendering short-lived streaming previews before durable snapshots arrive.
 
-Access-mode selection is also a browser responsibility. A local Inspector
-exchanges a one-time launch code for a tab-scoped local API token. The public
-demo mounts without authentication or runtime pairing. Other hosted origins
-retain the signed-in account and explicit runtime-pairing flow.
+The Inspector is a local client of the loopback API. It does not own runtime
+credentials, account sessions, or pairing state.
 
 ## Does not own
 
@@ -50,19 +46,16 @@ selected-head resolution, then renders the result.
 
 ## Main flow
 
-1. `AuthGate` selects local capability access, anonymous public-demo access, or
-   hosted account access from the exact browser origin. Credentialed modes
-   obtain their credential before mounting the runtime client.
-2. `WindieProvider` loads authoritative snapshots from the API for
+1. `WindieProvider` loads authoritative snapshots from the local API for
    conversations, sessions, models, tools, providers, and plugins.
-3. A user action sends an explicit API request containing the conversation,
+2. A user action sends an explicit API request containing the conversation,
    selected message head, or session ID. The API resolves the durable target
    and performs the shared operation.
-4. For live session work, the Inspector subscribes to the session SSE route
+3. For live session work, the Inspector subscribes to the session SSE route
    with its last accepted event ID. It rejects duplicate or older events,
    reduces accepted events into browser projections, and updates the selected
    conversation and transient stream preview.
-5. The Inspector renders the resulting state. Replayed events recover missed
+4. The Inspector renders the resulting state. Replayed events recover missed
    activity after a disconnect, while the API remains responsible for the
    durable session even if the browser tab closes.
 
@@ -74,8 +67,8 @@ selected-head resolution, then renders the result.
   API-owned session execution.
 - The browser never reads SQLite, calls Bifrost, executes tools, or decides
   what the model sees.
-- Local and hosted credentials are sent only to a loopback API endpoint. The
-  public demo calls its exact remote API hostname without a browser credential.
+- The browser communicates only with the local loopback API; it does not read
+  SQLite or attach cloud account credentials to runtime requests.
 - SSE event IDs are replay cursors. The Inspector advances a cursor only for
   accepted events so reconnects do not apply the same durable event twice.
 - Streaming previews are transient presentation state. Persisted messages and
@@ -83,13 +76,9 @@ selected-head resolution, then renders the result.
 
 ## Related code
 
-- [`vendor/windie-inspector/frontend/src/App.js`](../../../vendor/windie-inspector/frontend/src/App.js) — mounts authentication, the runtime provider, and browser routes.
-- [`vendor/windie-inspector/frontend/src/components/auth/AuthGate.jsx`](../../../vendor/windie-inspector/frontend/src/components/auth/AuthGate.jsx) — selects local, anonymous demo, or hosted access.
-- [`vendor/windie-inspector/frontend/src/components/auth/LocalAccessGate.jsx`](../../../vendor/windie-inspector/frontend/src/components/auth/LocalAccessGate.jsx) — exchanges a local launch code for tab-scoped access.
-- [`vendor/windie-inspector/frontend/src/components/auth/RuntimeAccessGate.jsx`](../../../vendor/windie-inspector/frontend/src/components/auth/RuntimeAccessGate.jsx) — checks and pairs hosted runtime access.
+- [`vendor/windie-inspector/frontend/src/App.js`](../../../vendor/windie-inspector/frontend/src/App.js) — mounts the local runtime provider and browser routes.
 - [`vendor/windie-inspector/frontend/src/context/WindieContext.jsx`](../../../vendor/windie-inspector/frontend/src/context/WindieContext.jsx) — composes the Inspector's conversation, session, model, tool, plugin, and provider state.
 - [`vendor/windie-inspector/frontend/src/hooks/useSessionRuntime.js`](../../../vendor/windie-inspector/frontend/src/hooks/useSessionRuntime.js) — coordinates session selection, API actions, and event projections.
 - [`vendor/windie-inspector/frontend/src/hooks/useSessionTransport.js`](../../../vendor/windie-inspector/frontend/src/hooks/useSessionTransport.js) — manages SSE subscriptions and replay cursors.
-- [`vendor/windie-inspector/frontend/src/lib/windieEndpoint.js`](../../../vendor/windie-inspector/frontend/src/lib/windieEndpoint.js) — selects the public-demo or local API endpoint from the browser origin.
-- [`vendor/windie-inspector/frontend/src/lib/windieApi.js`](../../../vendor/windie-inspector/frontend/src/lib/windieApi.js) — sends anonymous or authenticated HTTP requests to the selected API.
+- [`vendor/windie-inspector/frontend/src/lib/windieApi.js`](../../../vendor/windie-inspector/frontend/src/lib/windieApi.js) — sends HTTP requests to the local API.
 - [`vendor/windie-inspector/frontend/src/lib/sessionStream.js`](../../../vendor/windie-inspector/frontend/src/lib/sessionStream.js) — parses session SSE responses.

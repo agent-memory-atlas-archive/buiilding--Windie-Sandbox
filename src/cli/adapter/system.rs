@@ -29,14 +29,23 @@ pub(crate) fn start_api_process() -> Result<()> {
     Ok(())
 }
 
-/// Opens the packaged Inspector through a one-time local API launch grant.
-pub(crate) async fn open_inspector() -> Result<()> {
-    crate::inspector::open().await
-}
-
 /// Stops the Windie API process without touching Bifrost.
 pub(crate) fn stop_api_process() -> Result<()> {
     let report = operation::stop_api()?;
+    TerminalOutput.component_report(&report);
+    Ok(())
+}
+
+/// Starts the detached Inspector process.
+pub(crate) fn start_inspector_process() -> Result<()> {
+    let report = operation::start_inspector()?;
+    TerminalOutput.component_report(&report);
+    Ok(())
+}
+
+/// Stops the Inspector process without touching the API or Bifrost.
+pub(crate) fn stop_inspector_process() -> Result<()> {
+    let report = operation::stop_inspector()?;
     TerminalOutput.component_report(&report);
     Ok(())
 }
