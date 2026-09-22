@@ -22,7 +22,7 @@ no session exists, or the result is ambiguous. The API returns that result or
 creates the new branch session atomically when the requested operation allows
 creation.
 
-The hosted Inspector is a presentation client. It asks the API to query,
+The local Inspector is a presentation client. It asks the API to query,
 continue, approve, cancel, or inspect a session, but it does not run the
 model/tool loop or infer durable ownership from its local state.
 

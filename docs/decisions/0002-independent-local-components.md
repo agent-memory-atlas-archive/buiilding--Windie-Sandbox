@@ -15,7 +15,7 @@ replace.
 ## Decision
 
 Run the Bifrost gateway, Windie API, tray, and notifier as independent local
-components with their own process lifecycle, PID file, and log. The hosted
+components with their own process lifecycle, PID file, and log. The local
 Inspector is a browser client of the API, not a managed local runtime process.
 
 The API owns durable runtime work. Bifrost owns provider communication. The

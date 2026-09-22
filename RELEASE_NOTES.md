@@ -10,30 +10,6 @@ for GitHub release descriptions; the detailed engineering history is kept in
   now prepares its own Bifrost build input, and contributors have one
   cross-platform setup guide and clearer contribution checks.
 
-## [0.4.2] - 2026-08-24
-
-- Added controls for choosing when an awake session checks back in.
-- Added a timer showing when the next wakeup will happen.
-- Added a Wake now action to start a session early.
-
-## [0.4.1] - 2026-08-23
-
-- Fixed desktop notifications for the hosted Windie app. Notifications now
-  continue working after you connect your computer, including when the local
-  Windie database has been recreated.
-
-## [0.4.0] - 2026-08-20
-
-- Windie’s Chat UI now runs at app.windieos.com. Install Windie, sign in, and
-  connect it to your computer.
-- Added desktop notifications when an assistant finishes responding.
-- Added an optional Keep awake setting so eligible sessions can continue after
-  being idle.
-- Replaced built-in MCP integrations with a plugin marketplace for installing
-  and managing local tools.
-- Simplified installation: Windie now installs the local runtime and Bifrost
-  gateway, then opens the hosted app.
-
 ## [0.3.2] - 2026-08-10
 
 - Refreshed the Inspector's branding and improved the layout of its activity
@@ -110,10 +86,7 @@ tool providers.
 - Added the localhost API, local setup commands, the one-line installer, and
   release packaging.
 
-[Unreleased]: https://github.com/buiilding/Windie-Sandbox/compare/v0.4.2...HEAD
-[0.4.2]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.4.2
-[0.4.1]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.4.1
-[0.4.0]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.4.0
+[Unreleased]: https://github.com/buiilding/Windie-Sandbox/compare/v0.3.2...HEAD
 [0.3.2]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.3.2
 [0.3.1]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.3.1
 [0.3.0]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.3.0

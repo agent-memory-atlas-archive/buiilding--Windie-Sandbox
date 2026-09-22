@@ -13,7 +13,7 @@ API / CLI / runtime operations
               │
               ├── conversations and message tree
               ├── sessions, queues, claims, and events
-              └── tools, components, compactions, and local access
+              └── tools, components, and compactions
 ```
 
 ## Purpose
@@ -42,8 +42,6 @@ The SQLite store owns these durable records:
 - **Compactions** — summaries saved through a specific conversation message.
 - **Tool state** — conversation-attached tool schemas, installed component
   lifecycle records, provider tool catalogs, and Chrome DevTools settings.
-- **Runtime access** — the singleton hosted-account pairing allowed to use this
-  local runtime.
 
 `Store` methods validate typed IDs and ownership before writing. The schema
 uses foreign keys and indexes for relationships and common lookups, including
@@ -121,9 +119,6 @@ SQLite does not own in-memory execution or presentation:
   event log the canonical conversation transcript.
 - Image assets are referenced by ordered message parts. Deleting messages or
   truncating a branch cleans up assets that no longer have a part reference.
-- The runtime-access table is a singleton. A second hosted account cannot
-  replace the account that already owns this local database without an explicit
-  unlink.
 - Provider credentials for LLM inference are managed by Bifrost, not stored as
   Windie conversation or session data. Windie persists only the local runtime
   state it owns.
@@ -142,7 +137,6 @@ SQLite does not own in-memory execution or presentation:
 - `src/store/tool_schema.rs` — conversation-wide attached tool schemas.
 - `src/store/component.rs` — installed component lifecycle records.
 - `src/store/tool_catalog.rs` — persisted provider-owned MCP tool catalogs.
-- `src/store/runtime_access.rs` — singleton hosted-account pairing.
 - [Storage overview](README.md) — how conversations, sessions, and events fit
   together.
 - [Conversation tree](conversation-tree.md) — durable message structure.

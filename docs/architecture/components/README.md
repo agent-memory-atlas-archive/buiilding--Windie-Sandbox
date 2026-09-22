@@ -44,8 +44,8 @@ Lifecycle commands: `windie gateway start`, `windie gateway stop`, and
 
 ## Inspector
 
-The Inspector is the hosted browser client. It displays Windie state and sends
-user actions to the API through the paired local connection. It does not read
+The Inspector is the local browser client. It displays Windie state and sends
+user actions to the API through the loopback connection. It does not read
 SQLite, call Bifrost directly, or own session execution.
 
 In development, `windie dev run inspector` starts a frontend development

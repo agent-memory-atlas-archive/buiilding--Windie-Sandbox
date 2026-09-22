@@ -30,8 +30,8 @@ CLI (terminal) ─── shared operations ──> Windie runtime
 - **SSE** replays and streams durable session activity to connected consumers.
 - The **CLI** parses terminal commands and invokes the same shared operations
   used behind the API.
-- The **Inspector** is the hosted visual client for inspecting state and
-  sending user actions to a paired local API.
+- The **Inspector** is the local visual client for inspecting state and sending
+  user actions to the loopback API.
 
 ## Main flow
 

@@ -39,6 +39,16 @@ pub fn stop_api() -> Result<ProcessReport> {
     crate::local::process::stop_api()
 }
 
+/// Starts the detached Inspector process.
+pub fn start_inspector() -> Result<ProcessReport> {
+    crate::local::process::start_inspector()
+}
+
+/// Stops the Inspector process without affecting Windie API or Bifrost.
+pub fn stop_inspector() -> Result<ProcessReport> {
+    crate::local::process::stop_inspector()
+}
+
 /// Starts the detached native tray without changing any other component.
 pub fn start_tray() -> Result<ProcessReport> {
     crate::local::process::start_tray()
@@ -66,7 +76,8 @@ pub async fn component_statuses(
 ) -> Result<Vec<ComponentStatus>> {
     let gateway = crate::operation::gateway_status(gateway_url);
     let api = endpoint_is_running(format!("{}/api/health", crate::config::api_url()));
-    let (gateway_running, api_running) = tokio::join!(gateway, api);
+    let inspector = endpoint_is_running(format!("http://{}/", crate::config::inspector_address()));
+    let (gateway_running, api_running, inspector_running) = tokio::join!(gateway, api, inspector);
 
     Ok(vec![
         ComponentStatus {
@@ -76,6 +87,10 @@ pub async fn component_statuses(
         ComponentStatus {
             component: ManagedComponent::Api,
             running: api_running,
+        },
+        ComponentStatus {
+            component: ManagedComponent::Inspector,
+            running: inspector_running,
         },
         ComponentStatus {
             component: ManagedComponent::Tray,

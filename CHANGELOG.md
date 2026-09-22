@@ -7,105 +7,6 @@ are maintained separately in [`RELEASE_NOTES.md`](RELEASE_NOTES.md).
 
 ## [Unreleased]
 
-- Moved the backend, frontend, and command source maps under `docs/index/`,
-  updated their inbound links, and added optional pinned macOS Go and Node
-  installer commands alongside the official download workflow.
-
-- Made `windie dev run gateway` prepare Bifrost's ignored Go-embed input, so
-  normal Windie development no longer requires building Bifrost's separate
-  dashboard. Reorganized source-development documentation around one shared
-  workflow, added a documentation index and contributor guide, removed stale
-  guide scaffolds, and added portable CI validation for local documentation
-  links with the Inspector submodule initialized for its pinned Node.js
-  version.
-
-- Updated the Inspector provider panel to refresh the available model catalog
-  after provider key changes.
-
-- Added a Linux development guide covering native build dependencies, pinned
-  toolchains, Bifrost's generated UI, desktop boundaries, ports, and
-  Linux-specific troubleshooting.
-
-- Aligned the root, shared, macOS, and Windows development guides with the
-  pinned toolchain files and local-default Inspector workflow, and clarified
-  the engineering-ownership instructions for future Windie work.
-
-- Repaired the Inspector submodule reference on the development branch so a
-  recursive clone resolves a published Inspector commit and retains local
-  Inspector access.
-
-- Documented the durable session-event model: its separate SQLite activity
-  log, database-wide replay cursor, event payloads, transactional invariants,
-  and SSE delivery flow.
-
-- Added packaged and development local Inspector access. `windie inspector
-  open` now opens a locally served frontend through a one-time, API-issued
-  browser credential without a hosted sign-in, while `app.windieos.com` keeps
-  its existing Supabase sign-in and explicit runtime-pairing flow.
-
-- Pinned the Rust, Go, and Inspector Node.js development toolchains in
-  machine-readable version files and made check and release workflows install
-  their toolchains from those declarations.
-
-- Organized architecture documentation into durable state, execution, model
-  access, extensions, interfaces, and local components, with group overviews
-  and templates for detailed references. Added plugin publishing, hosted
-  Inspector, and desktop notification guides plus decisions documenting API
-  authority and independent local components.
-
-- Removed superseded standalone MCP, provider-onboarding, and code-owned MCP
-  migration references after consolidating current documentation under the
-  architecture and guide hierarchy.
-
-- Added an Awesome Mineflayer MCP plugin package with a pinned upstream Node
-  runtime, explicit bot connection flow, isolated persistent configuration,
-  and raw packet tools disabled by default.
-
-- Added a pinned Minecraft MCP plugin package with a bundled Node runtime,
-  fixed local-LAN defaults, manual approval boundaries, and generated
-  marketplace support.
-
-- Made idle and explicit wakeups durable transcript messages. Windie now
-  appends a clearly marked, system-generated user-role wakeup request before
-  running the normal session executor, rather than injecting an invisible
-  system prompt into only one model request.
-- Added source-verified architecture references for conversation trees, sessions, runtime turns, tool execution, plugins, MCPs, and local processes.
-
-## [0.4.2] - 2026-08-24
-
-- Added persistent per-session idle-wakeup schedules with 15-minute,
-  30-minute, one-hour, and two-hour cadences. The local API now returns the
-  authoritative next wakeup time, and the Inspector shows a live countdown.
-- Added an explicit Inspector **Wake now** action. It enters the same durable
-  session executor without creating a user message, records user activity to
-  reset the autonomous timer, and uses a distinct runtime wakeup context.
-- Migrated existing local databases to store each session's selected
-  idle-wakeup interval, retaining the previous 30-minute behavior by default.
-
-## [0.4.1] - 2026-08-23
-
-- Fixed installed desktop notifications after hosted API pairing. The local
-  notifier now uses a private per-installation component credential only for
-  its protected internal event streams, rather than requiring a browser
-  account token.
-- Made the notifier recover automatically when a local Windie database is
-  reset, restored, or replaced. It discards an event cursor that cannot exist
-  in the current database instead of permanently skipping future completions.
-
-## [0.4.0] - 2026-08-20
-
-- Fixed cross-platform native notification callbacks, cleanup commands, and
-  current Clippy checks.
-- Fixed cross-platform plugin tests so macOS-only packages are rejected on
-  unsupported systems and isolated runtime paths use native components.
-- Moved the Inspector out of installed releases. Packages and installers now
-  contain and start only Windie, Bifrost, the tray, and the notifier; after the
-  local API is healthy, installation opens the paired hosted Inspector at
-  `app.windieos.com`.
-- Added a hosted-account authorization boundary for the local API. The first
-  signed-in Inspector explicitly pairs one Supabase account with a local Windie
-  database; later API and SSE calls require that account's verified token, and
-  a different account cannot overwrite the pairing.
 - Separated durable completion observation and OS notification delivery into
   the independent `notifier` component. It now has its own lifecycle and
   development command, macOS app identity, Windows toast adapter, Linux
@@ -477,10 +378,7 @@ tool providers.
 - Added the Windie wordmark, Inspector and extension previews, and initial
   project documentation.
 
-[Unreleased]: https://github.com/buiilding/Windie-Sandbox/compare/v0.4.2...HEAD
-[0.4.2]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.4.2
-[0.4.1]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.4.1
-[0.4.0]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.4.0
+[Unreleased]: https://github.com/buiilding/Windie-Sandbox/compare/v0.3.2...HEAD
 [0.3.2]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.3.2
 [0.3.1]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.3.1
 [0.3.0]: https://github.com/buiilding/Windie-Sandbox/releases/tag/v0.3.0

@@ -9,7 +9,6 @@ mod compaction;
 mod component;
 mod conversation;
 mod message;
-mod runtime_access;
 mod schema;
 mod session;
 mod system_prompt;
@@ -19,7 +18,6 @@ mod tool_schema;
 pub use compaction::Compaction;
 pub use component::InstalledProvider;
 pub use conversation::ConversationInfo;
-pub use runtime_access::{RuntimeAccess, RuntimeAccessLink};
 pub(crate) use session::SessionRuntimeMessage;
 pub use tool_catalog::{ProviderCatalogStatus, ProviderToolCatalog};
 

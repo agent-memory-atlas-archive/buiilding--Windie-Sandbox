@@ -13,14 +13,13 @@ The HTTP interface owns:
 
 - the route table and HTTP methods;
 - request validation and JSON response shapes;
-- CORS and runtime-access authorization;
+- CORS and loopback-client rules;
 - mapping requests to shared Windie operations; and
 - mapping operation results and typed errors back to JSON or Server-Sent Events
   (SSE).
 
 The default base URL is `http://127.0.0.1:8787`. Browser development clients
-may run on ports `3000` or `5173`, and the hosted Inspector uses
-`https://app.windieos.com`.
+may run on ports `3000` or `5173`.
 
 ## Does not own
 
@@ -36,9 +35,8 @@ directly.
 ## Main flow
 
 1. A client sends an HTTP request to a route below.
-2. CORS and runtime-access middleware classify the request as public, trusted
-   local-component traffic, a local Inspector session, or a paired hosted
-   account.
+2. CORS and loopback rules verify that the request comes from an allowed local
+   client origin.
 3. The route handler validates the request and adapts it to the relevant
    shared operation.
 4. The shared operation performs the authoritative runtime or store work.
@@ -75,24 +73,12 @@ written by another Windie process, such as a CLI-owned session. Clients keep
 the greatest accepted event ID and reconnect with that cursor after a
 disconnect; duplicate or older IDs are ignored by the client.
 
-## Authorization
+## Local access
 
-The API is loopback-bound, but being able to reach its port is not sufficient
-for protected runtime access under the normal policy.
-
-- `GET /api/health`, `GET /api/status`, `POST /api/shutdown`, and
-  `POST /api/runtime/local-access/exchange` are public lifecycle routes.
-- Internal event streams and local Inspector launch-code issuance require the
-  private local component credential.
-- Other runtime routes require either a local Inspector token issued by this
-  API process or a validated hosted account token whose account is paired with
-  this local runtime.
-- A local Inspector session cannot manage hosted-account pairing.
-
-The disposable public demo is an explicit exception. Starting the API with
-`WINDIE_UNSAFE_PUBLIC_DEMO=1` accepts every request without authentication or
-pairing. It does not restrict routes or capabilities. The mode prints a startup
-warning and must not be enabled for an ordinary local Windie installation.
+The API is loopback-bound and is intended for clients running on the user's
+computer. The API process and its local components communicate through the
+loopback interface; there is no hosted account or cloud runtime authorization
+layer in the local-first architecture.
 
 ## API routes
 
@@ -106,9 +92,6 @@ session ID.
 | --- | --- | --- |
 | GET | `/api/health` | Confirm that the API process is reachable. |
 | GET | `/api/status` | Report local runtime status, including gateway readiness. |
-| GET, POST, DELETE | `/api/runtime/access` | Read, create, or remove hosted-account pairing. |
-| POST | `/api/runtime/local-access/launch` | Issue a one-time local Inspector launch code to a trusted local component. |
-| POST | `/api/runtime/local-access/exchange` | Exchange a launch code for a local Inspector token. |
 | POST | `/api/shutdown` | Request graceful shutdown of the API process. |
 
 ### Events and development notifications
@@ -207,8 +190,8 @@ session ID.
 
 - The API route table is the client contract; runtime authority remains in the
   shared store and operation layers.
-- Protected runtime routes require authorization. Loopback network access alone
-  is not sufficient unless the explicit unsafe public-demo mode is enabled.
+- Runtime routes are local API routes and are not backed by hosted account
+  ownership or cloud authorization.
 - Session resolution is backend-owned. Clients send the conversation and
   selected head, and the API returns the authoritative branch result.
 - SSE event IDs are durable cursors. Clients can replay events after a
@@ -218,8 +201,6 @@ session ID.
 
 - [`src/api/router.rs`](../../../src/api/router.rs) — defines the route table,
   methods, middleware, and CORS policy.
-- [`src/api/runtime_access.rs`](../../../src/api/runtime_access.rs) —
-  authenticates hosted accounts and local Inspector sessions.
 - [`src/api/state.rs`](../../../src/api/state.rs) — state shared by route
   handlers.
 - [`src/api/error.rs`](../../../src/api/error.rs) — maps typed failures to JSON

@@ -1,6 +1,6 @@
 [package]
 name = "windie"
-version = "0.4.2"
+version = "0.3.2"
 edition = "2024"
 
 [dependencies]
@@ -18,7 +18,7 @@ tar = "0.4"
 flate2 = "1"
 xz2 = { version = "0.1", features = ["static"] }
 zip = "2"
-tower-http = { version = "0.6", features = ["cors", "fs"] }
+tower-http = { version = "0.6", features = ["cors"] }
 tokio = { version = "1", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
 tower = { version = "0.5", features = ["util"] }
 uuid = { version = "1", features = ["v4"] }

@@ -14,23 +14,11 @@ renders them.
 ## Application entry point
 
 - `src/index.js`: mounts the React application into the browser document.
-- `src/App.js`: creates the application shell, public-demo, hosted-account, and
-  local-runtime access gates, `WindieProvider`, browser routes, and the global
-  toast surface.
+- `src/App.js`: creates the application shell, `WindieProvider`, browser
+  routes, and the global toast surface.
 - `src/pages/Windie.jsx`: composes the inspector layout: top bar, conversation
   tree sidebar, chat panel, and optional inspector overlay. It also owns the
   first-run provider onboarding check and the persisted tree-panel toggle.
-- `src/components/auth/AuthGate.jsx`: selects loopback local capability access,
-  anonymous public-demo access, or the hosted Google/Supabase account path.
-- `src/components/auth/LocalAccessGate.jsx`: exchanges a one-time local launch
-  code for a tab-scoped local API credential before mounting the Inspector.
-- `src/components/auth/RuntimeAccessGate.jsx`: reads local pairing status and
-  requires the signed-in user to explicitly connect their account before the
-  runtime client mounts.
-- `src/context/AuthContext.jsx`: exposes the selected local, public-demo, or
-  hosted access kind plus hosted session and sign-out state.
-- `src/lib/supabase.js`: creates the browser-only Supabase client from public
-  deployment configuration.
 
 The Inspector has a workspace route at `/` and an addressable session route at
 `/sessions/:sessionId`. The session route asks the local API for the durable
@@ -191,16 +179,11 @@ wrappers. They contain no Windie runtime or persistence rules:
 
 ### API, event, and data-shape libraries
 
-- `src/lib/windieEndpoint.js`: selects the exact public-demo API for
-  `app.windieos.com` and preserves the loopback default for local origins.
-- `src/lib/windieEndpoint.test.js`: tests production-host selection, local
-  fallback, and explicit overrides for non-production origins.
-- `src/lib/windieApi.js`: HTTP boundary for anonymous demo, hosted bearer, and
-  local capability API requests;
+- `src/lib/windieApi.js`: localhost HTTP boundary for Windie API requests;
   covers health/status, conversations, images, models, model parameters,
   sessions, approvals, marketplace plugins, providers, and conversation
   settings. Gateway process lifecycle remains a CLI concern.
-- `src/lib/sessionStream.js`: API SSE transport; reads streamed
+- `src/lib/sessionStream.js`: localhost SSE transport; reads streamed
   session events, parses `id`, `event`, and multiline `data` fields, and turns
   failed events into client errors.
 - `src/lib/sessionEventCursor.js`: event-ID ordering and duplicate suppression
@@ -392,12 +375,8 @@ treated as durable history.
 - `lib/windieApi.js`: the only general HTTP client. It resolves the API base
   URL, parses JSON errors, and exposes typed-ish frontend operations for
   conversations, backend-owned session-head resolution/query/continue,
-  sessions, models, tools, providers, gateway state, approvals, image assets,
-  and local-runtime pairing. It sends the Supabase access token only to a
-  loopback API URL.
-- `lib/windieEndpoint.js`: the single endpoint-selection boundary. The exact
-  production demo hostname resolves to `https://api-demo.windieos.com`; other
-  origins retain runtime/build overrides and the loopback default.
+  sessions, models, tools, providers, gateway state, approvals, and image
+  assets.
 - `lib/sessionStream.js`: the SSE client for one session's event stream. It
   parses SSE framing and JSON payloads, but does not decide how events affect
   application state.
@@ -413,15 +392,11 @@ treated as durable history.
 - `lib/treeLayout.js`: computes positions and edges for the visual tree. It is
   a layout calculation, not a conversation operation.
 
-The production `app.windieos.com` Inspector is the anonymous public demo. It
-skips Google/Supabase sign-in and runtime pairing, then calls
-`https://api-demo.windieos.com` without a browser credential. Local and other
-hosted origins retain their existing capability or account gates. The local
-API default remains `http://127.0.0.1:8787`, and
-`REACT_APP_WINDIE_API_URL` can override endpoint selection during a frontend
-build for other origins. The exact production demo hostname always selects its
-demo API. Production uses this hosted client; releases do not include a
-standalone Inspector server.
+The standalone Inspector calls the localhost API directly without an API token.
+The default API endpoint is
+`http://127.0.0.1:8787`, overridable with `REACT_APP_WINDIE_API_URL` during a
+frontend build or by the standalone Inspector's runtime
+`WINDIE_API_ADDRESS`/`WINDIE_API_PORT` settings.
 
 ## Live session lifecycle
 

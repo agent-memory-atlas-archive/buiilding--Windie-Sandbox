@@ -39,7 +39,6 @@ installed, enabled, disabled, broken, or updating, does not install these packag
 - store/compaction.rs: summary checkpoint store, saves and loads compaction checkpoints.
 - store/conversation.rs: creates, lists, deletes conversations and stores conversation-level settings like model, reasoning effort, tool approval mode.
 - store/message.rs: stores the whole conversation tree. Load paths, insert messages, store messages, including text and image parts, replaces, removes, truncates messages, and forks to another conversation at current message head.
-- store/runtime_access.rs: persists the one hosted account explicitly authorized to use this local runtime and prevents another account from replacing it.
 - docs/architecture/storage/conversation-tree-paths.md: explains why the shared message tree is canonical and why model context resolves a selected root-to-head path instead of storing duplicated linear paths.
 - store/schema.rs: database shape, schema version checks, table creation, indexes, and unsupported database version rejection.
 - store/session.rs: stores sessions and queued inputs, updates current heads/status, resolves session branches at conversation heads, atomically resolves-or-creates branches, and stores/replays session events.
@@ -72,8 +71,7 @@ installed, enabled, disabled, broken, or updating, does not install these packag
 - api/router.rs: maps HTTP URLs to API handlers and applies shared request rules.
 - api/state.rs: shared API server state passed into route handlers.
 - api/error.rs: turns internal Windie errors into HTTP JSON errors.
-- api/runtime_access.rs: validates hosted Supabase account sessions and pairing, issues and verifies volatile local Inspector credentials, and owns the explicit anonymous public-demo policy.
-- api/router.rs: local runtime routes normally require either hosted paired-account authorization or a local Inspector token; `WINDIE_UNSAFE_PUBLIC_DEMO=1` deliberately bypasses authorization for every route while the listener remains loopback-bound behind the demo tunnel.
+- api/router.rs: exposes the loopback-bound local runtime routes; health and shutdown stay available for local lifecycle checks.
 - api/sse.rs: serializes replayed and live session events for HTTP streaming, hydrating state-changing events with session and message snapshots plus the canonical final assistant text on aggregate completion events.
 - api/event.rs: exposes the database-wide durable session-event cursor and
   aggregate SSE feed for clients that need to observe durable activity across
@@ -94,8 +92,8 @@ installed, enabled, disabled, broken, or updating, does not install these packag
   tray assistant-completed notification probe; it never writes session state.
 - api/env.rs: securely writes manifest-declared provider secrets to ~/.windie/.env and refuses arbitrary environment keys.
 - api/shutdown.rs: unauthenticated localhost graceful-stop route used by `windie api stop`; signals api/mod.rs without changing Bifrost.
-- api/tests.rs: test HTTP routes, hosted-account pairing, error mapping, SSE/session behavior, conversation operating, tools, and mock Bifrost responses.
-- config.rs: shared environment-backed gateway, API, and hosted-account configuration.
+- api/tests.rs: test HTTP routes, error mapping, SSE/session behavior, conversation operating, tools, and mock Bifrost responses.
+- config.rs: shared environment-backed gateway, API, and Inspector endpoint configuration.
 
 ## CLI
 
@@ -131,7 +129,7 @@ installed, enabled, disabled, broken, or updating, does not install these packag
 - local/tray.rs: macOS/Windows tray presentation component that polls local component health and requests explicit single-component lifecycle operations.
 - local/notifier.rs: independent notification process that starts durable completion and development-probe observers without owning a tray or runtime service.
 - local/session_event_observer.rs: reconnecting aggregate session-completion SSE observer that persists the last displayed cursor and forwards a preview of only canonical final durable assistant responses to the notifier.
-- local/tray_notification.rs: native notification presenter plus the development-only notification SSE probe. Current platform click actions open the durable session in the packaged local Inspector; the probe never touches durable session state.
+- local/tray_notification.rs: native notification presenter plus the development-only notification SSE probe. Current platform click actions open the durable session's local Inspector URL; the probe never touches durable session state.
 - cli/tests.rs: test cli command parsing and validation
 
 ## Tools and providers
@@ -221,7 +219,7 @@ installed, enabled, disabled, broken, or updating, does not install these packag
 - main.rs: front desk for the windie binary.
 - llm/gateway.rs: manages the local Bifrost LLM gateway lifecycle and health checks.
 - error.rs: Typed Windie errors.
-- ../vendor/windie-inspector/frontend: hosted browser client for inspecting and
+- ../vendor/windie-inspector/frontend: local browser client for inspecting and
   controlling a paired local Windie runtime through its loopback API.
 
 ## Runtime behavior and invariants
@@ -298,7 +296,7 @@ Keep boundaries strict:
 - Only `local/` should own user-local directory setup, `~/.windie/.env` editing, and local Windie process/tray management.
 - Only `managed_runtime/` should install and resolve Windie-managed Node.js and uv runtimes for packaged components.
 - Only `dev.rs` should own repository development helper launchers, while
-  `vendor/windie-inspector/` owns the first-party hosted Inspector client.
+  `vendor/windie-inspector/` owns the first-party local Inspector client.
 - Only `tool/` should own the model-facing provider registry and provider lifecycle projection.
 - Only `mcp/` should own MCP protocol, transport, MCPB, MCP tool discovery, and MCP result adaptation.
 - Only `store/` should own persisted message history, attached tools, and know about SQLite tables and queries.
@@ -334,7 +332,6 @@ surface auditable when files are added or moved.
 - `src/api/mod.rs`: local API server boundary and startup.
 - `src/api/plugin.rs`: marketplace plugin API handlers.
 - `src/api/router.rs`: local API route table and HTTP middleware wiring.
-- `src/api/runtime_access.rs`: hosted-account validation and local runtime pairing handlers/middleware.
 - `src/api/session.rs`: session lifecycle and event API route handlers.
 - `src/api/session_approval.rs`: session-approval API route handlers.
 - `src/api/shutdown.rs`: local API graceful-shutdown handling.
@@ -468,7 +465,6 @@ surface auditable when files are added or moved.
 - `src/store/conversation.rs`: conversation-row persistence and conversation-level settings.
 - `src/store/message.rs`: message-tree, message-part, image-asset, and fork persistence.
 - `src/store/mod.rs`: SQLite persistence boundary.
-- `src/store/runtime_access.rs`: durable hosted-account ownership for the local runtime.
 - `src/store/schema.rs`: SQLite schema creation and version validation.
 - `src/store/session.rs`: runtime-session and replayable session-event persistence.
 - `src/store/system_prompt.rs`: tree-wide user-owned system-prompt persistence.
